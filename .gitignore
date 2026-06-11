@@ -1,0 +1,27 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+.pub/
+build/
+flutter_*.png
+
+# FVM
+.fvm/
+!.fvm/fvm_config.json
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+
+# macOS
+.DS_Store
+
+# Native generated files
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
+windows/flutter/ephemeral/
+
+# Local environment
+.env
+.env.*
