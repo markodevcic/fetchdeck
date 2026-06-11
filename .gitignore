@@ -25,3 +25,22 @@ windows/flutter/ephemeral/
 # Local environment
 .env
 .env.*
+
+# Generated per-platform tool bundle copied by scripts/prepare_platform_tools.sh.
+# Keep the directory placeholder so Flutter can resolve the asset folder.
+assets/tools/current/*
+!assets/tools/current/.gitkeep
+!assets/tools/current/manifest.json
+
+# Large third-party tool binaries are local/release artifacts, not Git content.
+# Keep README.md files and scripts in Git; populate binaries with
+# scripts/download_tools.sh or by placing verified downloads in these folders.
+assets/tools/macos/yt-dlp
+assets/tools/macos/ffmpeg
+assets/tools/macos/ffprobe
+assets/tools/windows/yt-dlp.exe
+assets/tools/windows/ffmpeg.exe
+assets/tools/windows/ffprobe.exe
+assets/tools/linux/yt-dlp
+assets/tools/linux/ffmpeg
+assets/tools/linux/ffprobe
