@@ -94,6 +94,10 @@ class _SplitEditorDrawerState extends ConsumerState<SplitEditorDrawer> {
     final silenceController = ref.read(
       silenceDetectionControllerProvider.notifier,
     );
+    ref.listen<SplitAudioState>(
+      splitAudioControllerProvider,
+      (_, next) => _stopPreviewAtEnd(next),
+    );
     final timelineDuration = audioState.duration > Duration.zero
         ? audioState.duration
         : state.duration;
@@ -109,7 +113,6 @@ class _SplitEditorDrawerState extends ConsumerState<SplitEditorDrawer> {
     final canAddMarker =
         state.duration > Duration.zero &&
         !_hasMarkerAtPlayhead(state, audioState.position);
-    _pauseFinishedMarkerPreview(audioState);
 
     final content = LayoutBuilder(
       builder: (context, constraints) {
@@ -147,7 +150,7 @@ class _SplitEditorDrawerState extends ConsumerState<SplitEditorDrawer> {
                         _SplitIconButton(
                           icon: LucideIcons.x,
                           variant: _SplitIconButtonVariant.ghost,
-                          onPressed: () => unawaited(_requestClose(state)),
+                          onPressed: widget.onClose,
                         ),
                       ],
                     ),
@@ -313,7 +316,7 @@ class _SplitEditorDrawerState extends ConsumerState<SplitEditorDrawer> {
                           ..setMinimumSilence(preset.minimumSilence);
                       },
                       onFadeChanged: controller.setFadeDuration,
-                      onCancel: () => unawaited(_requestClose(state)),
+                      onCancel: widget.onClose,
                       onApply: state.canApply
                           ? () {
                               if (controller.apply()) widget.onClose();
@@ -393,46 +396,13 @@ class _SplitEditorDrawerState extends ConsumerState<SplitEditorDrawer> {
     );
   }
 
-  Future<void> _requestClose(SplitEditorState state) async {
-    if (state.markers.length <= 1) {
-      widget.onClose();
-      return;
-    }
-
-    final confirmed = await forui.showFDialog<bool>(
-      context: context,
-      builder: (context, style, animation) => forui.FDialog.adaptive(
-        animation: animation,
-        title: const Text('Close split editor?'),
-        body: const Text(
-          'The split markers you added will stay on this download, but this editing panel will close.',
-        ),
-        actions: [
-          forui.FButton(
-            variant: forui.FButtonVariant.destructive,
-            onPress: () => Navigator.of(context).pop(true),
-            child: const Text('Close'),
-          ),
-          forui.FButton(
-            variant: forui.FButtonVariant.outline,
-            onPress: () => Navigator.of(context).pop(false),
-            child: const Text('Keep editing'),
-          ),
-        ],
-      ),
-    );
-
-    if (!mounted || confirmed != true) return;
-    widget.onClose();
-  }
-
   Duration _clampMarkerPosition(Duration position, Duration duration) {
     if (position < Duration.zero) return Duration.zero;
     if (position >= duration) return duration - const Duration(seconds: 1);
     return position;
   }
 
-  void _pauseFinishedMarkerPreview(SplitAudioState audioState) {
+  void _stopPreviewAtEnd(SplitAudioState audioState) {
     final endPosition = _previewEndPosition;
     if (_previewingMarkerId == null ||
         endPosition == null ||
@@ -442,20 +412,8 @@ class _SplitEditorDrawerState extends ConsumerState<SplitEditorDrawer> {
       return;
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final latestAudioState = ref.read(splitAudioControllerProvider);
-      final latestEndPosition = _previewEndPosition;
-      if (_previewingMarkerId == null ||
-          latestEndPosition == null ||
-          _previewSeekPending ||
-          !latestAudioState.isPlaying ||
-          latestAudioState.position < latestEndPosition) {
-        return;
-      }
-      _clearMarkerPreview();
-      unawaited(ref.read(splitAudioControllerProvider.notifier).pause());
-    });
+    _clearMarkerPreview();
+    unawaited(ref.read(splitAudioControllerProvider.notifier).pause());
   }
 
   void _toggleMarkerPreview(
