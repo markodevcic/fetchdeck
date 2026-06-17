@@ -38,14 +38,49 @@ fvm flutter test
 ```
 
 Before a desktop release build, prepare only the current platform's bundled
-tools:
+tools and build through the release wrapper:
 
 ```bash
-scripts/prepare_platform_tools.sh macos
-fvm flutter build macos
+scripts/build_desktop_release.sh current
 ```
 
-Use `windows` or `linux` instead when building those targets.
+To build and create a distributable artifact in `dist/`:
+
+```bash
+scripts/package_desktop_release.sh current
+```
+
+For macOS direct distribution outside the Mac App Store, create a drag-to-
+Applications DMG:
+
+```bash
+scripts/package_macos_direct.sh
+```
+
+For public distribution, sign and notarize with Developer ID:
+
+```bash
+export MACOS_CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+export NOTARY_PROFILE="fetchdeck-notary"
+scripts/package_macos_direct.sh --notarize
+```
+
+Create the notary profile once with:
+
+```bash
+xcrun notarytool store-credentials fetchdeck-notary \
+  --apple-id "you@example.com" \
+  --team-id "TEAMID" \
+  --password "app-specific-password"
+```
+
+Use `macos`, `windows`, or `linux` explicitly when needed. Flutter desktop
+builds are host-specific, so build Windows on Windows and Linux on Linux or
+matching CI runners.
+
+Bundled tool binaries are intentionally not stored in Git. See
+`assets/tools/README.md` for local tool preparation and
+`THIRD_PARTY_NOTICES.md` for release licensing notes.
 
 ## Product Direction
 
@@ -77,16 +112,25 @@ The app now performs the first real engine step:
 - starts yt-dlp downloads for analyzed queue items
 - streams progress into queue rows
 - supports cancelling active downloads
+- supports retrying failed downloads
+- supports a configurable concurrent download limit
+- supports optional browser-cookie authentication for private or account-gated media
 - persists output folder, selected preset, and last-used tool paths across launches
 - persists analyzed, failed, and completed queue items to local JSON
-- restores interrupted downloads as ready items on app launch
+- restores interrupted queued/downloading jobs as ready items on app launch
+- restores interrupted analysis as failed with a clear error
 - separates Downloads, Queue, and Library views:
   - Downloads: active/ready/failed work
   - Queue: every persisted job
   - Library: completed jobs
 - supports row actions for retry/start, cancel, remove, and opening completed output folders
+- confirms destructive history/queue removal actions
+- records completed file path, size, started time, and completed time
+- opens or reveals completed files from the Inspector
 - adds a Settings view for manual `yt-dlp`, `ffmpeg`, and `ffprobe` paths
 - supports re-checking tool availability from Settings
+- supports bundled tool install into app support
+- supports user-controlled yt-dlp update checks and installs
 - adds a Presets view for inspecting and selecting built-in argument sets
 - supports creating, saving, selecting, and deleting custom yt-dlp presets
 - embeds each job's preset definition so older queue items keep working even if a custom preset is later deleted
@@ -95,5 +139,9 @@ The app now performs the first real engine step:
 - groups formats into Combined, Video only, Audio only, and Other
 - improves format labels with codecs, resolution, extension, and size
 - persists selected format overrides per queue item
+- uses the provided logo as the in-app brand mark and generated desktop app icons
+- includes a release wrapper that prepares platform-specific tool assets before building
+- includes a packaging wrapper that creates local release artifacts under `dist/`
 
-Next planned slices: preset editing, deeper format filters, and bundled tool management.
+Next planned slices: platform release signing/notarization, final manual QA,
+and packaging/license review for each platform.

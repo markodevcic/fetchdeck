@@ -11,7 +11,7 @@ void main() {
     expect(find.text('Fetchdeck'), findsOneWidget);
     expect(find.text('Downloads'), findsWidgets);
     expect(find.text('Inspector'), findsOneWidget);
-    expect(find.text('No active downloads yet'), findsOneWidget);
+    expect(find.text('No downloads yet'), findsOneWidget);
     expect(find.text('MP3 320'), findsWidgets);
   });
 }

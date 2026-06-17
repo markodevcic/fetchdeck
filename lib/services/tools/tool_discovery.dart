@@ -69,15 +69,6 @@ class ToolDiscovery {
       if (existingCandidate == null && candidateExists) {
         existingCandidate = candidate;
       }
-      if (candidateExists &&
-          candidate.source == ToolSource.bundled &&
-          bundledVersion != null) {
-        return ToolInfo.available(
-          path: candidate.path,
-          version: bundledVersion,
-          source: candidate.source,
-        );
-      }
       final versionResult = await _readVersion(
         candidate.path,
         versionArguments,
@@ -86,6 +77,15 @@ class ToolDiscovery {
         return ToolInfo.available(
           path: candidate.path,
           version: versionResult.version!,
+          source: candidate.source,
+        );
+      }
+      if (candidateExists &&
+          candidate.source == ToolSource.bundled &&
+          bundledVersion != null) {
+        return ToolInfo.available(
+          path: candidate.path,
+          version: bundledVersion,
           source: candidate.source,
         );
       }

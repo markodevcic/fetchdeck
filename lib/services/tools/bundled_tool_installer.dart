@@ -11,7 +11,7 @@ class BundledToolInstaller {
     final platform = _platformName;
     if (platform == null) return const BundledToolPaths();
 
-    final supportDirectory = await getApplicationCacheDirectory();
+    final supportDirectory = await getApplicationSupportDirectory();
     final toolDirectory = Directory(
       '${supportDirectory.path}${Platform.pathSeparator}tools'
       '${Platform.pathSeparator}$platform',

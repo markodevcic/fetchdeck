@@ -26,6 +26,14 @@ Fetchdeck is a desktop-only Flutter application that provides a polished UX over
 - Keep card radius at 8px or less.
 - Avoid marketing/landing-page UI. The first screen should be the usable download workbench.
 
+## Split Editor Playback
+
+- Use `media_kit` with `media_kit_libs_audio` for desktop audio playback in the split editor.
+- Call `MediaKit.ensureInitialized()` during app startup before creating players.
+- Keep playback state in Riverpod application controllers, not widgets.
+- `splitAudioAutoloadEnabledProvider` exists so unit/widget tests can disable native player loading. Override it to `false` in tests unless the test is intentionally exercising real media playback.
+- The split editor uses marker timestamps as song-start positions. The `00:00` marker is required and represents the first generated segment.
+
 ## yt-dlp Integration
 
 Do not reimplement yt-dlp. The Flutter app should call yt-dlp/ffmpeg as bundled or user-configured desktop executables.
@@ -44,6 +52,10 @@ Current engine slice:
 - `lib/services/tools/tool_discovery.dart` detects `yt-dlp`, `ffmpeg`, and `ffprobe` from PATH plus common platform paths.
 - `lib/services/yt_dlp/yt_dlp_service.dart` runs metadata analysis with `yt-dlp -J --no-warnings --skip-download URL`.
 - `YtDlpService.startDownload(...)` runs downloads with `Process.start`, `--newline`, and a `fetchdeck:` `--progress-template`.
+- `lib/services/yt_dlp/yt_dlp_authentication.dart` models optional
+  `--cookies-from-browser` authentication. When enabled, both metadata analysis
+  and downloads must receive the same auth arguments so private/account-gated
+  browser-playable media can be analyzed and downloaded.
 - `lib/services/settings/app_settings_repository.dart` persists output folder, selected preset, and last-used tool paths through `shared_preferences`.
 - `lib/services/queue/queue_repository.dart` persists analyzed/completed/failed jobs to `queue.json` under the app support directory.
 - `lib/services/presets/custom_preset_repository.dart` persists custom presets to `custom_presets.json` under the app support directory.
@@ -53,6 +65,7 @@ Current engine slice:
 Queue restore behavior:
 
 - `downloading` jobs restore as `ready` with `Interrupted` text because the process is gone after restart.
+- `queued` jobs restore as `ready` with `Interrupted` text because the scheduler state is gone after restart.
 - `analyzing` jobs restore as `failed` because metadata analysis was interrupted.
 
 Current navigation behavior:
@@ -69,6 +82,9 @@ Settings behavior:
 - Choosing a tool path saves it immediately and re-runs tool discovery.
 - Clearing a tool path removes the saved preference and re-runs auto-detection.
 - Re-check uses saved/manual paths first, then PATH and common install folders.
+- Browser cookies can be enabled in Settings. Persist the enabled flag and
+  selected browser, and pass the resulting `YtDlpAuthentication` through
+  WorkbenchActions into analysis and download controllers.
 - yt-dlp update checks happen at startup after tool discovery and can also be
   triggered manually from Settings. Updates are user-controlled: show available
   versions, then install only after the user clicks Update.
@@ -102,13 +118,34 @@ Initial presets:
 - Flutter bundles only `assets/tools/current/`. Before building, run
   `scripts/prepare_platform_tools.sh macos`, `windows`, or `linux` so the app
   includes only that platform's binaries.
+- Prefer `scripts/build_desktop_release.sh current` for release builds. It
+  prepares platform-specific tools, runs `fvm flutter pub get`, and builds the
+  current desktop platform.
+- Use `scripts/package_desktop_release.sh current` to build and produce a local
+  distributable artifact under `dist/`.
+- Use `scripts/package_macos_direct.sh` for macOS direct distribution outside
+  the Mac App Store. It creates a drag-to-Applications DMG. Add `--sign` with
+  `MACOS_CODESIGN_IDENTITY="Developer ID Application: ..."` for a signed local
+  DMG, or `--notarize` with `NOTARY_PROFILE`/Apple credentials for a public
+  notarized DMG.
+- Flutter desktop builds are host-specific. Build macOS on macOS, Windows on
+  Windows, and Linux on Linux or matching CI runners. Do not expect the local
+  macOS machine to produce Windows/Linux release artifacts.
 - Keep source binaries under `assets/tools/macos`, `assets/tools/windows`, and
   `assets/tools/linux`. Do not add those source folders to `pubspec.yaml`
   assets, or every platform build will include every binary.
+- `assets/images/logo.png` is the source in-app brand asset. Platform icons are
+  generated from the same logo into macOS `AppIcon.appiconset`, Windows
+  `app_icon.ico`, and Linux `runner/resources/app_icon.png`.
 - Add a tool health check during app startup.
 - Document license obligations before shipping. yt-dlp source is Unlicense, but official PyInstaller release binaries include GPLv3+ components. ffmpeg licensing depends on the build.
-- macOS direct-download builds should not use the App Sandbox because Fetchdeck executes bundled helper tools (`yt-dlp`, `ffmpeg`, `ffprobe`) from app support.
-- macOS builds will eventually need Developer ID signing/notarization and executable permission handling for bundled tools.
+- Keep `THIRD_PARTY_NOTICES.md` current with the exact binary sources and
+  release requirements before distribution.
+- macOS direct-download builds should not use the App Sandbox because Fetchdeck
+  executes managed helper tools (`yt-dlp`, `ffmpeg`, `ffprobe`) from
+  Application Support.
+- macOS public builds need Developer ID signing, hardened runtime, notarization,
+  and stapling. Use `scripts/package_macos_direct.sh --notarize`.
 
 ## Architecture Rules
 

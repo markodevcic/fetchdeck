@@ -3,6 +3,7 @@
 .packages
 .pub/
 build/
+dist/
 flutter_*.png
 
 # FVM

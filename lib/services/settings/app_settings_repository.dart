@@ -1,6 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../features/settings/application/download_concurrency_limit.dart';
 import '../../models/download_models.dart';
+import '../yt_dlp/yt_dlp_authentication.dart';
 
 class AppSettingsRepository {
   const AppSettingsRepository();
@@ -10,6 +12,10 @@ class AppSettingsRepository {
   static const _ytDlpPathKey = 'settings.yt_dlp_path';
   static const _ffmpegPathKey = 'settings.ffmpeg_path';
   static const _ffprobePathKey = 'settings.ffprobe_path';
+  static const _concurrencyLimitKey = 'settings.concurrency_limit';
+  static const _useBrowserCookiesKey = 'settings.use_browser_cookies';
+  static const _browserCookieSourceKey = 'settings.browser_cookie_source';
+  static const _browserCookieProfileKey = 'settings.browser_cookie_profile';
 
   Future<AppSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -19,6 +25,10 @@ class AppSettingsRepository {
       ytDlpPath: prefs.getString(_ytDlpPathKey),
       ffmpegPath: prefs.getString(_ffmpegPathKey),
       ffprobePath: prefs.getString(_ffprobePathKey),
+      concurrencyLimitName: prefs.getString(_concurrencyLimitKey),
+      useBrowserCookies: prefs.getBool(_useBrowserCookiesKey),
+      browserCookieSourceName: prefs.getString(_browserCookieSourceKey),
+      browserCookieProfile: prefs.getString(_browserCookieProfileKey),
     );
   }
 
@@ -30,6 +40,25 @@ class AppSettingsRepository {
   Future<void> saveSelectedPreset(PresetDefinition preset) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_selectedPresetKey, preset.id);
+  }
+
+  Future<void> saveConcurrencyLimit(DownloadConcurrencyLimit limit) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_concurrencyLimitKey, limit.name);
+  }
+
+  Future<void> saveAuthentication(YtDlpAuthentication authentication) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(
+      _useBrowserCookiesKey,
+      authentication.useBrowserCookies,
+    );
+    await prefs.setString(_browserCookieSourceKey, authentication.browser.name);
+    await _setOrRemove(
+      prefs,
+      _browserCookieProfileKey,
+      authentication.browserProfile,
+    );
   }
 
   Future<void> saveToolPaths({
@@ -86,6 +115,10 @@ class AppSettings {
     this.ytDlpPath,
     this.ffmpegPath,
     this.ffprobePath,
+    this.concurrencyLimitName,
+    this.useBrowserCookies,
+    this.browserCookieSourceName,
+    this.browserCookieProfile,
   });
 
   final String? outputDirectory;
@@ -93,4 +126,8 @@ class AppSettings {
   final String? ytDlpPath;
   final String? ffmpegPath;
   final String? ffprobePath;
+  final String? concurrencyLimitName;
+  final bool? useBrowserCookies;
+  final String? browserCookieSourceName;
+  final String? browserCookieProfile;
 }

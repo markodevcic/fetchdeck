@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 class YtDlpUpdateService {
   const YtDlpUpdateService({this.client});
 
+  static const _versionCheckTimeout = Duration(seconds: 30);
+
   final HttpClient? client;
 
   Future<YtDlpUpdateInfo> checkForUpdate({
@@ -50,15 +52,15 @@ class YtDlpUpdateService {
 
     await destination.parent.create(recursive: true);
     await _download(downloadUrl, tempFile);
-    if (!Platform.isWindows) {
-      await Process.run('chmod', ['+x', tempFile.path]);
-    }
+    await _prepareExecutable(tempFile);
 
-    final installedVersion = await _readVersion(tempFile.path);
-    if (installedVersion == null) {
+    final versionCheck = await _readVersion(tempFile.path);
+    if (versionCheck.version == null) {
       await _deleteIfExists(tempFile);
-      throw const YtDlpUpdateException(
-        'Downloaded yt-dlp could not be verified.',
+      throw YtDlpUpdateException(
+        versionCheck.error == null
+            ? 'Downloaded yt-dlp could not be verified.'
+            : 'Downloaded yt-dlp could not be verified: ${versionCheck.error}',
       );
     }
 
@@ -84,7 +86,7 @@ class YtDlpUpdateService {
 
     return YtDlpInstallResult(
       path: destination.path,
-      version: installedVersion,
+      version: versionCheck.version!,
     );
   }
 
@@ -95,7 +97,7 @@ class YtDlpUpdateService {
         'yt-dlp updates are supported only on desktop platforms.',
       );
     }
-    final supportDirectory = await getApplicationCacheDirectory();
+    final supportDirectory = await getApplicationSupportDirectory();
     final suffix = Platform.isWindows ? '.exe' : '';
     return File(
       '${supportDirectory.path}${Platform.pathSeparator}tools'
@@ -163,17 +165,41 @@ class YtDlpUpdateService {
     }
   }
 
-  Future<String?> _readVersion(String executable) async {
+  Future<void> _prepareExecutable(File file) async {
+    if (Platform.isWindows) return;
+    if (Platform.isMacOS) {
+      await Process.run('xattr', ['-d', 'com.apple.quarantine', file.path]);
+    }
+    await Process.run('chmod', ['+x', file.path]);
+  }
+
+  Future<_VersionCheckResult> _readVersion(String executable) async {
     try {
       final result = await Process.run(executable, const [
         '--version',
-      ], runInShell: Platform.isWindows).timeout(const Duration(seconds: 8));
+      ], runInShell: Platform.isWindows).timeout(_versionCheckTimeout);
 
-      if (result.exitCode != 0) return null;
       final output = '${result.stdout}\n${result.stderr}'.trim();
-      return output.isEmpty ? null : output.split('\n').first.trim();
-    } on Object {
-      return null;
+      if (result.exitCode != 0) {
+        return _VersionCheckResult(
+          error: output.isEmpty
+              ? 'Exited with code ${result.exitCode}.'
+              : output.split('\n').first.trim(),
+        );
+      }
+      return output.isEmpty
+          ? const _VersionCheckResult(error: 'No version was printed.')
+          : _VersionCheckResult(version: output.split('\n').first.trim());
+    } on TimeoutException {
+      return const _VersionCheckResult(
+        error: 'Version check timed out after 30 seconds.',
+      );
+    } on ProcessException catch (error) {
+      return _VersionCheckResult(error: error.message);
+    } on FileSystemException catch (error) {
+      return _VersionCheckResult(error: error.message);
+    } on Object catch (error) {
+      return _VersionCheckResult(error: error.toString());
     }
   }
 
@@ -196,6 +222,13 @@ class YtDlpUpdateService {
     }
     return 0;
   }
+}
+
+class _VersionCheckResult {
+  const _VersionCheckResult({this.version, this.error});
+
+  final String? version;
+  final String? error;
 }
 
 class YtDlpUpdateInfo {
